@@ -2,10 +2,12 @@ import iziToast from "izitoast";
 import "izitoast/dist/css/iziToast.min.css";
 import SimpleLightbox from 'simplelightbox';
 import 'simplelightbox/dist/simple-lightbox.min.css';
+import axios from 'axios';
 const gallery = document.querySelector(".gallery");
 const form = document.querySelector(".search-form");
 const loader = document.querySelector(".loader")
 const input = document.querySelector("input[name='searchQuery']");
+const lmbtn = document.querySelector(".lmbtn")
 let lightbox = null;
 form.addEventListener("submit", (event) => {
     event.preventDefault()
@@ -21,41 +23,52 @@ window.rejectAlert = function(message) {
     backgroundColor: "#d15858",
   });
 }
+  const apiKey = "50495832-52e00f4195b6d2cb1ef4fba52"
+  axios.defaults.headers.common["header-name"] = apiKey
+  const client = axios.create({
+        baseURL: "https://pixabay.com/api/",
+    });
 
-const userSearch = (userInput) => {
-    gallery.innerHTML = ""
+const userSearch = async (userInput) => {
+  gallery.innerHTML = "";
+  const trimmedInput = userInput.trim();
 
-    const trimmedInput = userInput.trim();
+  if (trimmedInput === "") {
+    return rejectAlert("Sorry, there are no images matching your search query. Please try again!");
+  }
 
-    if (trimmedInput === "") {
-        return rejectAlert("Sorry, there are no images matching your search query. Please try again!")
+  loader.style.display = 'block';
+
+  try {
+    const url = "https://corsproxy.io/?" + encodeURIComponent("https://pixabay.com/api/");
+    const response = await client.get(url, {
+      params: {
+        key: apiKey,
+        q: trimmedInput,
+        image_type: "photo",
+        orientation: "horizontal",
+        safesearch: true,
+        per_page: 3,
+      }
+    });
+
+    loader.style.display = 'none';
+
+    const images = response.data.hits;
+
+    if (images.length === 0) {
+      return rejectAlert("Sorry, there are no images matching your search query. Please try again!");
     }
-    loader.style.display = 'block'
 
-    const apiKey = "50495832-52e00f4195b6d2cb1ef4fba52"
-    const userSearchUrl = `https://pixabay.com/api/?key=${apiKey}&q=${trimmedInput}&image_type=photo&orientation=horizontal&safesearch=true`
-    const options = {
-        method: "GET"
-    };
-    fetch(userSearchUrl, options) 
-        .then(res => {
-            loader.style.display = 'none'
-            if (!res.ok) {
-                throw new Error(res.status)
-            }
-            return res.json();
-        })
-        .then (res => {
-            const images = res.hits;
+    renderGallery(images);
+    lmbtn.classList.remove("visualy-hidden");
 
-            if (images.length === 0) { 
-                return rejectAlert("Sorry, there are no images matching your search query. Please try again!")
-            }
-            // const { webformatURL, largeImageURL, tags, likes, views, comments, downloads } = firstImage
-             renderGallery(images);
-        })
-        .catch(console.error)
-}
+  } catch (error) {
+    loader.style.display = 'none';
+    console.error(error);
+    return rejectAlert("Something went wrong. Please try again later.");
+  }
+};
 // const createGallery = (res) => {
 //   const imgs = images.map(renderImage);
 //   container.append(...imgs);
